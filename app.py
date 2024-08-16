@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from http import HTTPStatus
-import markdown
+import markdown, os
 from dashscope import Application
 
 
@@ -13,9 +13,18 @@ def index():
 
 @app.route("/get", methods=["GET", "POST"])
 def get_Chat_response():
-    response = Application.call(app_id='9193d7ac66de4b79bd7f5d78db494f95',
+    app_id = os.getenv('DASHSCOPE_APP_ID')
+    api_key = os.getenv('DASHSCOPE_API_KEY')
+
+    if not app_id or not api_key:
+        return jsonify({
+            'error':
+            'Missing DASHSCOPE_APP_ID or DASHSCOPE_API_KEY'
+        })
+            
+    response = Application.call(app_id=app_id,
                                 prompt=request.form["msg"],
-                                api_key='sk-ca86b34dfd6242a3abd028a47e08dc2b',
+                                api_key=api_key,
                                 )
 
     #print (markdown.markdown(response.output.text))                               
