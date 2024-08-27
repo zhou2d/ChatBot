@@ -1,52 +1,57 @@
-from flask import Flask, render_template, request, jsonify, session
-from http import HTTPStatus
-import markdown, os
-from dashscope import Application  # 确保导入 Application 类
-import threading
+from flask import Flask, render_template, request, jsonify
+from threading import Thread
+import os
+from mistune import markdown
+from dashscope import Application
 import logging
 
-
-
 app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key')  # 为了使用 session，需要 secret_key
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Add a file handler to write logs to a file
-file_handler = logging.FileHandler(r'd:/python_debug/公文小助手serverside.log')
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-logging.getLogger('').addHandler(file_handler)
-
-# 用于存储正在处理的请求状态
+# Global variables
+conversation_history = []
 processing_requests = {}
+
+
 
 @app.route("/")
 def index():
     return render_template('chat.html')
 
 @app.route("/get", methods=["POST"])
-def get_Chat_response():
+def get_bot_response():
+    global conversation_history
     user_message = request.form["msg"]
-    conversation_history = session.get('conversation_history', [])
-    request_id = request.form.get("request_id")
+    request_id = request.form["request_id"]
     
-    logging.info(f"Received request: ID={request_id}, Message={user_message}")
+    app.logger.info(f"Received request: ID={request_id}, Message={user_message}")
     
-    # Store the request_id in the session
-    session['current_request_id'] = request_id
+    conversation_history.append({"role": "user", "content": user_message})
+    conversation_history = conversation_history[-10:]  # Keep only the last 10 messages
     
-    # Start a new thread to process the request
-    thread = threading.Thread(target=process_message, args=(user_message, conversation_history, request_id))
+    processing_requests[request_id] = {"status": "processing", "message": "Processing request..."}
+    
+    thread = Thread(target=process_message, args=(user_message, conversation_history, request_id))
     thread.start()
     
-    return jsonify({"status": "processing", "message": "AI正在思考中，请稍候...", "request_id": request_id})
+    return jsonify({"status": "processing", "request_id": request_id})
+
+MAX_INPUT_LENGTH = 5900  # Leave some buffer
 
 def process_message(user_message, conversation_history, request_id):
     app.logger.info(f"Processing message: ID={request_id}")
-    conversation_history.append({"role": "user", "content": user_message})
+    
+    # Limit the conversation history
+    conversation_history = conversation_history[-5:]  # Keep only the last 5 messages
+    
     prompt = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
+    
+    # Truncate the prompt if it's too long
+    if len(prompt) > MAX_INPUT_LENGTH:
+        app.logger.warning(f"Prompt too long ({len(prompt)} chars), truncating...")
+        prompt = prompt[-MAX_INPUT_LENGTH:]
     
     try:
         # Load environment variables
@@ -57,32 +62,38 @@ def process_message(user_message, conversation_history, request_id):
         if not app_id or not api_key:
             raise ValueError("DASHSCOPE_APP_ID and DASHSCOPE_API_KEY must be set in the environment variables")
         
-        app.logger.info(f"Calling Bailian API: app_id={app_id}")
+        app.logger.info(f"Calling Bailian API: app_id={app_id}, prompt={prompt}")
         response = Application.call(
             app_id=app_id,
             prompt=prompt,
             api_key=api_key
         )
-        app.logger.info(f"API response received: ID={request_id}, Status={response.status_code}")
+        app.logger.info(f"API response received: ID={request_id}, Status={response.status_code if response else 'No response'}")
         
-        assistant_message = response.output.text
+        if response and response.status_code == 200 and hasattr(response.output, 'text'):
+            assistant_message = response.output.text
+        else:
+            app.logger.error(f"Invalid response from API: ID={request_id}, Response={response}")
+            assistant_message = "抱歉，我现在无法回答。请稍后再试。"
+
+        # Update the conversation history in the global variable
         conversation_history.append({"role": "assistant", "content": assistant_message})
         
         processing_requests[request_id] = {
             "status": "complete",
-            "message": markdown.markdown(assistant_message)
+            "message": markdown(assistant_message)
         }
         app.logger.info(f"Processing complete: ID={request_id}")
     except Exception as e:
         app.logger.error(f"Error processing message: ID={request_id}, Error={str(e)}")
         processing_requests[request_id] = {
             "status": "error",
-            "message": "An error occurred while processing your request."
+            "message": "抱歉，处理您的请求时出现错误。请稍后再试。"
         }
 
 @app.route("/status", methods=["GET"])
 def get_status():
-    request_id = request.args.get("request_id") or session.get('current_request_id')
+    request_id = request.args.get("request_id")
     app.logger.info(f"Status check for request_id: {request_id}")  # Add this line
     logging.info(f"Status check for request: ID={request_id}")
     
@@ -91,10 +102,9 @@ def get_status():
         logging.info(f"Status result: ID={request_id}, Status={result['status']}, Message={result['message'][:50]}...")
         
         if result['status'] == 'complete':
-            # If the processing is complete, update the conversation history in the session
-            conversation_history = session.get('conversation_history', [])
+            # If the processing is complete, update the conversation history
+            conversation_history = []
             conversation_history.append({"role": "assistant", "content": result['message']})
-            session['conversation_history'] = conversation_history
             # Remove the processed request from the dictionary
             del processing_requests[request_id]
             logging.info(f"Request completed and removed from processing: ID={request_id}")

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>公文小助手</title>
+		<title>公文快手</title>
 		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
 		<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
 		<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
@@ -11,9 +11,9 @@
 	
 	
 	<body>
-		<div class="container-fluid h-100">
-			<div class="row justify-content-center h-100">		
-				<div class="col-md-8 col-xl-6 chat">
+		<div class="container-fluid">
+			<div class="row justify-content-center h-100">
+				<div class="col-md-12 col-xl-12 chat">
 					<div class="card">
 						<div class="card-header msg_head">
 							<div class="d-flex bd-highlight">
@@ -22,7 +22,7 @@
 									<span class="online_icon"></span>
 								</div>
 								<div class="user_info">
-									<span>公文小助手</span>
+									<span>公文快手</span>
 									<p>官方文书，一键生成！</p>
 								</div>
 							</div>
@@ -33,9 +33,9 @@
 						</div>
 						<div class="card-footer">
 							<form id="messageArea" class="input-group">
-                                <input type="text" id="text" name="msg" placeholder="Type your message..." autocomplete="off" class="form-control type_msg" required/>
+                                <textarea id="text" name="msg" class="form-control type_msg" placeholder="Type your message..." required></textarea>
 								<div class="input-group-append">
-									<button type="submit" id="send" class="input-group-text send_btn"><i class="fas fa-location-arrow"></i></button>
+									<button type="button" id="sendButton" class="input-group-text send_btn"><i class="fas fa-location-arrow"></i></button>
 								</div>
 							</form>
 						</div>
@@ -43,93 +43,576 @@
 				</div>
 			</div>
 		</div>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
-<script>
-	$(document).ready(function() {
-		function scrollToBottom() {
-			var messageBody = $("#messageFormeight");
-			messageBody.scrollTop(messageBody[0].scrollHeight);
-		}
 
-		function pollForResponse(requestId) {
-			console.log("Polling for response with requestId:", requestId);
-			$.ajax({
-				url: "/status",
-				type: "GET",
-				data: { request_id: requestId },
-				success: function(data) {
-					console.log("Received status response:", data);
-					if (data.status === 'complete') {
-						// Remove any existing processing messages
-						$(".processing-message").remove();
+		<div class="prompt-toggle">
+			<i class="fas fa-chevron-left"></i>
+		</div>
 
-						// Display the AI's response
-						var botHtml = '<div class="d-flex justify-content-start mb-4"><div class="img_cont_msg"><img src="https://i.ibb.co/fSNP7Rz/icons8-chatgpt-512.png" class="rounded-circle user_img_msg"></div><div class="msg_cotainer">' + data.message + '<span class="msg_time">' + new Date().toLocaleTimeString() + '</span></div></div>';
-						$("#messageFormeight").append($.parseHTML(botHtml));
-						scrollToBottom();
-					} else if (data.status === 'processing' || data.status === 'not_found') {
-						console.log("Still processing or not found, polling again in 1 second");
-						// Continue polling after a short delay
-						setTimeout(function() { pollForResponse(requestId); }, 1000);
-					} else {
-						// Handle error or unexpected status
-						$("#messageFormeight").append('<div class="d-flex justify-content-start mb-4"><div class="msg_cotainer">抱歉, 发生了一些问题, 请稍后再试. 状态: ' + data.status + '</div></div>');
-						scrollToBottom();
-					}
-				},
-				error: function(xhr, status, error) {
-					console.error('Error in pollForResponse:', xhr.status, error);
-					$("#messageFormeight").append('<div class="d-flex justify-content-start mb-4"><div class="msg_cotainer">抱歉, 发生了一些问题, 请稍后再试. 错误代码: ' + xhr.status + '</div></div>');
-					scrollToBottom();
+		<div class="prompt-panel">
+			<div class="prompt-panel-header">
+				<h4>提问示例</h4>
+				<button class="close-prompt-panel">&times;</button>
+			</div>
+			<h6><i>你可以试试以下的公文写作要求。你的要求越具体，公文写作的准确性越高。</i></h6>
+			<div id="promptList"></div>
+		</div>
+
+		<style>
+			body, html {
+				height: 100%;
+				margin: 0;
+				background: #7F7FD5;
+				background: -webkit-linear-gradient(to right, #91EAE4, #86A8E7, #7F7FD5);
+				background: linear-gradient(to right, #91EAE4, #86A8E7, #7F7FD5);
+			}
+			.chat {
+				margin-top: auto;
+				margin-bottom: auto;
+			}
+			.card {
+				height: 90vh;
+				border-radius: 15px !important;
+				background-color: rgba(0,0,0,0.4) !important;
+			}
+			.contacts_body {
+				padding: 0.75rem 0 !important;
+				overflow-y: auto;
+				white-space: nowrap;
+			}
+			.msg_card_body {
+				overflow-y: auto;
+			}
+			.card-header {
+				border-radius: 15px 15px 0 0 !important;
+				border-bottom: 0 !important;
+			}
+			.card-footer {
+				border-radius: 0 0 15px 15px !important;
+				border-top: 0 !important;
+				display: flex;
+				padding: 10px;
+			}
+			.container {
+				max-width: 100% !important;
+				padding: 0 15px;
+			}
+			.card {
+				width: 100%;
+			}
+			@media (min-width: 576px) {
+				.container {
+					padding: 0 30px;
 				}
-			});
-		}
+			}
+			.search {
+				border-radius: 15px 0 0 15px !important;
+				background-color: rgba(0,0,0,0.3) !important;
+				border: 0 !important;
+				color: white !important;
+			}
+			.search:focus {
+				box-shadow: none !important;
+				outline: 0px !important;
+			}
+			.type_msg {
+				background-color: rgba(0,0,0,0.3) !important;
+				border: 0 !important;
+				color: white !important;
+				min-height: 100px !important;
+				max-height: 200px !important;
+				overflow-y: auto !important;
+				resize: none;
+			}
+			.type_msg:focus {
+				box-shadow: none !important;
+				outline: 0px !important;
+			}
+			.attach_btn {
+				border-radius: 15px 0 0 15px !important;
+				background-color: rgba(0,0,0,0.3) !important;
+				border: 0 !important;
+				color: white !important;
+				cursor: pointer;
+			}
+			.send_btn {
+				border-radius: 0 15px 15px 0 !important;
+				background-color: rgba(0,0,0,0.3) !important;
+				border: 0 !important;
+				color: white !important;
+				cursor: pointer;
+			}
+			.search_btn {
+				border-radius: 0 15px 15px 0 !important;
+				background-color: rgba(0,0,0,0.3) !important;
+				border: 0 !important;
+				color: white !important;
+				cursor: pointer;
+			}
+			.contacts {
+				list-style: none;
+				padding: 0;
+			}
+			.contacts li {
+				width: 100% !important;
+				padding: 5px 10px;
+				margin-bottom: 15px !important;
+			}
+			.active {
+				background-color: rgba(0,0,0,0.3);
+			}
+			.user_img {
+				height: 70px;
+				width: 70px;
+				border:1.5px solid #f5f6fa;
+			}
+			.user_img_msg {
+				height: 40px;
+				width: 40px;
+				border:1.5px solid #f5f6fa;
+			}
+			.img_cont {
+				position: relative;
+				height: 70px;
+				width: 70px;
+			}
+			.img_cont_msg {
+				height: 40px;
+				width: 40px;
+			}
+			.online_icon {
+				position: absolute;
+				height: 15px;
+				width:15px;
+				background-color: #4cd137;
+				border-radius: 50%;
+				bottom: 0.2em;
+				right: 0.4em;
+				border:1.5px solid white;
+			}
+			.offline {
+				background-color: #c23616 !important;
+			}
+			.user_info {
+				margin-top: auto;
+				margin-bottom: auto;
+				margin-left: 15px;
+			}
+			.user_info span {
+				font-size: 20px;
+				color: white;
+			}
+			.user_info p {
+				font-size: 10px;
+				color: rgba(255,255,255,0.6);
+			}
+			.msg_cotainer {
+				margin-top: auto;
+				margin-bottom: auto;
+				margin-left: 10px;
+				border-radius: 25px;
+				background-color: #82ccdd;
+				padding: 10px;
+				position: relative;
+				max-width: 80%;
+				word-wrap: break-word;
+			}
+			.msg_cotainer_send {
+				margin-top: auto;
+				margin-bottom: auto;
+				margin-right: 10px;
+				border-radius: 25px;
+				background-color: #78e08f;
+				padding: 10px;
+				position: relative;
+				max-width: 80%;
+				word-wrap: break-word;
+			}
+			.msg_time {
+				position: absolute;
+				left: 0;
+				bottom: -15px;
+				color: rgba(255,255,255,0.5);
+				font-size: 10px;
+			}
+			.msg_time_send {
+				position: absolute;
+				right:0;
+				bottom: -15px;
+				color: rgba(255,255,255,0.5);
+				font-size: 10px;
+			}
+			.msg_head {
+				position: relative;
+			}
+			#action_menu_btn {
+				position: absolute;
+				right: 10px;
+				top: 10px;
+				color: white;
+				cursor: pointer;
+				font-size: 20px;
+			}
+			.action_menu {
+				z-index: 1;
+				position: absolute;
+				padding: 15px 0;
+				background-color: rgba(0,0,0,0.5);
+				color: white;
+				border-radius: 15px;
+				top: 30px;
+				right: 15px;
+				display: none;
+			}
+			.action_menu ul {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+			}
+			.action_menu ul li {
+				width: 100%;
+				padding: 10px 15px;
+				margin-bottom: 5px;
+			}
+			.action_menu ul li i {
+				padding-right: 10px;
+			}
+			.action_menu ul li:hover {
+				cursor: pointer;
+				background-color: rgba(0,0,0,0.2);
+			}
+			@media(max-width: 576px) {
+				.contacts_card {
+					margin-bottom: 15px !important;
+				}
+			}
+			.prompt-panel {
+				position: fixed;
+				top: 0;
+				right: -300px;
+				width: 300px;
+				height: 100%;
+				background-color: rgba(0,0,0,0.7);
+				transition: right 0.3s ease-in-out;
+				overflow-y: auto;
+				color: white;
+				padding: 20px;
+				font-size: 0.8em;
+				z-index: 1001;
+			}
+			.prompt-panel.open {
+				right: 0;
+			}
+			.prompt-panel-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 15px;
+			}
+			.close-prompt-panel {
+				background: none;
+				border: none;
+				color: white;
+				font-size: 1.5em;
+				cursor: pointer;
+			}
+			.prompt-item {
+				margin-bottom: 15px;
+				cursor: pointer;
+				font-size: 0.9em;
+			}
+			.prompt-item:hover {
+				background-color: rgba(255,255,255,0.1);
+			}
+			.prompt-toggle {
+				position: fixed;
+				top: 50%;
+				right: 0;
+				transform: translateY(-50%);
+				background-color: rgba(0,0,0,0.7);
+				color: white;
+				padding: 10px;
+				cursor: pointer;
+				z-index: 1000;
+			}
+			#messageArea {
+				flex-grow: 1;
+				display: flex;
+			}
+			#text {
+				flex-grow: 1;
+			}
+			@media (max-width: 768px) {
+				.msg_cotainer, .msg_cotainer_send {
+					max-width: 90%;
+				}
+			}
+		</style>
 
-		$("#messageArea").on("submit", function(event) {
-			const date = new Date();
-			const hour = date.getHours();
-			const minute = date.getMinutes();
-			const str_time = hour+":"+minute;
-			var rawText = $("#text").val();
+		<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+		<script>
+			$(document).ready(function() {
+				let lastSentMessage = '';
+				let lastSentTime = 0;
+				let thinkingInterval;
 
-			var userHtml = '<div class="d-flex justify-content-end mb-4"><div class="msg_cotainer_send">' + rawText + '<span class="msg_time_send">'+ str_time + '</span></div><div class="img_cont_msg"><img src="https://i.ibb.co/d5b84Xw/Untitled-design.png" class="rounded-circle user_img_msg"></div></div>';
-			
-			$("#text").val("");
-			$("#messageFormeight").append(userHtml);
+				function startThinkingAnimation() {
+					let dots = 0;
+					const thinkingMessage = $('<div class="d-flex justify-content-start mb-4 processing-message"><div class="msg_cotainer">正在思考中<span id="thinking-dots"></span></div></div>');
+					$("#messageFormeight").append(thinkingMessage);
+					scrollToBottom();
 
-			scrollToBottom(); // Auto-scroll after appending user message
+					thinkingInterval = setInterval(function() {
+						dots = (dots + 1) % 4;
+						$("#thinking-dots").text('.'.repeat(dots));
+					}, 500);
+				}
 
-			var requestId = Date.now().toString(); // Generate a unique request ID
-			
-			// Show "正在思考中, 请稍候..." message
-			$("#messageFormeight").append('<div class="d-flex justify-content-start mb-4 processing-message"><div class="msg_cotainer">正在思考中, 请稍候...</div></div>');
-			scrollToBottom();
-
-			$.ajax({
-				data: {
-					msg: rawText,
-					request_id: requestId
-				},
-				type: "POST",
-				url: "/get",
-				success: function(data) {
-					console.log("Initial request successful, starting polling in 2 seconds");
-					setTimeout(function() { pollForResponse(requestId); }, 2000);  // Start polling after a 2-second delay
-				},
-				error: function(xhr, status, error) {
+				function stopThinkingAnimation() {
+					clearInterval(thinkingInterval);
 					$(".processing-message").remove();
-					console.error('Error in sendMessage:', xhr.status, error);
-					$("#messageFormeight").append('<div class="d-flex justify-content-start mb-4"><div class="msg_cotainer">抱歉, 发生了一些问题, 请稍后再试. 错误代码: ' + xhr.status + '</div></div>');
-					scrollToBottom();
 				}
+
+				function sendMessage() {
+					var userMessage = $("#text").val().trim();
+					var currentTime = new Date().getTime();
+
+					console.log("Attempting to send message:", userMessage);
+					console.log("Last sent message:", lastSentMessage);
+					console.log("Time since last message:", currentTime - lastSentTime, "ms");
+
+					if (userMessage === "") {
+						console.log("Empty message, not sending.");
+						return;
+					}
+
+					if (userMessage === lastSentMessage && currentTime - lastSentTime < 1000) {
+						console.log("Duplicate message detected within 1 second, not sending.");
+						return;
+					}
+
+					console.log("Sending message:", userMessage);
+
+					lastSentMessage = userMessage;
+					lastSentTime = currentTime;
+
+					$("#text").val(""); // Clear the input field
+					autoExpand(document.getElementById('text')); // Reset textarea size
+
+					var userHtml = '<div class="d-flex justify-content-end mb-4"><div class="msg_cotainer_send">' + userMessage + '<span class="msg_time_send">' + new Date().toLocaleTimeString() + '</span></div><div class="img_cont_msg"><img src="https://i.ibb.co/d5b84Xw/Untitled-design.png" class="rounded-circle user_img_msg"></div></div>';
+					$("#messageFormeight").append(userHtml);
+					scrollToBottom();
+
+					var requestId = Date.now().toString();
+					startThinkingAnimation();
+
+					console.log("Sending message with requestId:", requestId);
+					$.ajax({
+						data: {
+							msg: userMessage,
+							request_id: requestId
+						},
+						type: "POST",
+						url: "/get",
+						success: function(data) {
+							console.log("Initial request successful, starting polling");
+							pollForResponse(requestId);
+						},
+						error: function(xhr, status, error) {
+							stopThinkingAnimation();
+							console.error('Error in sendMessage:', xhr.status, error);
+							$("#messageFormeight").append('<div class="d-flex justify-content-start mb-4"><div class="msg_cotainer">抱歉, 发生了一些问题, 请稍后再试. 错误代码: ' + xhr.status + '</div></div>');
+							scrollToBottom();
+						}
+					});
+				}
+
+				function pollForResponse(requestId) {
+					$.ajax({
+						url: "/status",
+						type: "GET",
+						data: { request_id: requestId },
+						success: function(data) {
+							console.log("Received status response:", data);
+							if (data.status === 'complete') {
+								stopThinkingAnimation();
+								var botHtml = '<div class="d-flex justify-content-start mb-4"><div class="img_cont_msg"><img src="https://i.ibb.co/fSNP7Rz/icons8-chatgpt-512.png" class="rounded-circle user_img_msg"></div><div class="msg_cotainer">' + data.message + '<span class="msg_time">' + new Date().toLocaleTimeString() + '</span></div></div>';
+								$("#messageFormeight").append($.parseHTML(botHtml));
+								scrollToBottom();
+							} else if (data.status === 'processing') {
+								console.log("Still processing, polling again in 1 second");
+								setTimeout(function() { pollForResponse(requestId); }, 1000);
+							} else {
+								stopThinkingAnimation();
+								$("#messageFormeight").append('<div class="d-flex justify-content-start mb-4"><div class="msg_cotainer">抱歉, 发生了一些问题, 请稍后再试. 状态: ' + data.status + '</div></div>');
+								scrollToBottom();
+							}
+						},
+						error: function(xhr, status, error) {
+							stopThinkingAnimation();
+							console.error('Error in pollForResponse:', xhr.status, error);
+							$("#messageFormeight").append('<div class="d-flex justify-content-start mb-4"><div class="msg_cotainer">抱歉, 发生了一些问题, 请稍后再试. 错误代码: ' + xhr.status + '</div></div>');
+							scrollToBottom();
+						}
+					});
+				}
+
+				// Handle form submission
+				$("#messageArea").on("submit", function(event) {
+					console.log("Form submitted");
+					event.preventDefault();
+					sendMessage();
+				});
+
+				// Handle send button click
+				$("#sendButton").on("click", function(event) {
+					console.log("Send button clicked");
+					event.preventDefault();
+					sendMessage();
+				});
+
+				// Send message on Enter key press (Shift+Enter for new line)
+				$('#text').keypress(function(e) {
+					if(e.which === 13 && !e.shiftKey) {
+						console.log("Enter key pressed");
+						e.preventDefault();
+						sendMessage();
+					}
+				});
+
+				// Prompt item click handler
+				$(document).on('click', '.prompt-item', function() {
+					console.log("Prompt item clicked");
+					const fullPrompt = $(this).attr('title');
+					$('#text').val(fullPrompt);
+					autoExpand(document.getElementById('text'));
+					$('.prompt-panel').removeClass('open');
+					$('.prompt-toggle').show();
+				});
+
+				function autoExpand(textarea) {
+					textarea.style.height = 'auto';
+					textarea.style.height = (textarea.scrollHeight) + 'px';
+				}
+
+				$('#text').on('input', function() {
+					autoExpand(this);
+				});
+
+				// Initial call to set correct height
+				autoExpand(document.getElementById('text'));
+
+				function scrollToBottom() {
+					var messageBody = $("#messageFormeight");
+					messageBody.scrollTop(messageBody[0].scrollHeight);
+				}
+
+				// Prompt panel toggle
+				$('.prompt-toggle').click(function() {
+					$('.prompt-panel').addClass('open');
+					$(this).hide();
+				});
+
+				// Close prompt panel
+				$('.close-prompt-panel').click(function() {
+					$('.prompt-panel').removeClass('open');
+					$('.prompt-toggle').show();
+				});
+
+				// Sample prompts (replace with your own)
+				const prompts = [
+					`✦ 给国家部委公务员考试出一道公文写作题。`,
+					`✦ 请以某县教育局的名义，撰写一份通知，要求全县各中小学校加强校园安全管理，确保学生安全。
+
+要求：
+
+明确通知的背景和目的。
+列出至少三项具体的安全管理措施。
+指出各学校在执行过程中需要特别注意的事项。
+通知中应包含执行时间表和监督机制。
+语言规范，格式正确，符合公文写作的一般要求。
+字数控制在500-800字之间。
+
+参考信息：
+
+近期，该县发生了几起校园安全事故，引起了社会和家长的关注。
+教育局决定开展为期一个月的校园安全专项检查。
+要求各学校加强安全教育，提高学生的自我保护意识。`,
+					`✦ 请以国家发展和改革委员会的名义，撰写一份通知，要求各省、自治区、直辖市及计划单列市发展改革委，针对当前能源供需形势，加强能源保障和调控工作。
+
+要求：
+
+明确通知的背景和目的，指出当前能源供需面临的主要问题。
+列出至少四项具体的能源保障和调控措施。
+指出在执行过程中需要特别注意的事项。
+通知中应包含执行时间表和监督机制。
+语言规范，格式正确，符合公文写作的一般要求。
+字数控制在600-1000字之间。
+
+参考信息：
+
+当前国际能源市场波动较大，国内能源需求持续增长，部分地区出现能源供应偏紧的情况。
+国家发展改革委已经制定了一系列能源保障措施，要求各地发展改革委结合本地实际情况，制定具体实施方案。
+需要加强能源供应监测，确保能源供应的稳定性和安全性。
+鼓励能源节约和提高能源使用效率，减少能源消耗。`,
+					`✦ 为贯彻落实国家关于乡村振兴战略的决策部署，切实提升农村地区公共服务水平，请你以省政府办公厅的名义，拟写一份关于加强农村地区公共文化服务体系建设的通知。
+
+写作提示：
+
+明确通知目的： 强调加强农村地区公共文化服务建设的重要性，并明确通知的指导思想和工作目标。
+突出工作重点： 针对农村地区公共文化服务存在的突出问题，提出具体的工作措施，如加强文化基础设施建设、丰富文化活动内容、培养农村文化人才等。
+细化工作安排： 制定详细的工作时间表，明确各级政府和相关部门的职责分工，确保各项任务落到实处。
+强调保障措施： 提出相应的政策、资金保障措施，为工作开展提供有力支撑。
+加强督查考核： 建立健全考核评价机制，定期开展督查检查，确保各项工作取得实效。
+通知格式要求：
+
+标题： 一般采用发文机关+文种的形式，如"关于加强农村地区公共文化服务体系建设的通知"。
+主送机关： 明确通知的受文对象，如各市地政府、省直有关部门等。
+正文： 包括前言、正文、结尾三个部分。前言部分提出问题，明确目的；正文部分分析问题，提出对策；结尾部分强调要求，提出希望。
+附件： 如果有附件，应在正文后列出。
+发文机关： 明确发文机关的名称和印章。
+发文日期： 写明发文的具体日期。
+评分标准：
+
+内容： 紧扣题目要求，内容全面、具体、可操作性强。
+结构： 逻辑清晰，层次分明，结构完整。
+语言： 语言规范、准确，表述简洁流畅。
+格式： 符合公文格式要求。
+写作建议：
+
+多角度思考： 除了基础设施建设，还可以从文化活动、人才培养、政策支持等多个角度进行阐述。
+突出创新： 可以结合本地实际情况，提出一些创新性的工作思路和方法。
+注重可行性： 提出的措施要具有可操作性，避免空喊口号。
+温馨提示：
+
+参考范文： 可以参考以往的公文范文，学习其写作思路和表达方式。
+查阅资料： 可以查阅相关政策法规和研究报告，为写作提供理论依据。
+请教他人： 可以请教老师、同学或相关领域的专家，寻求他们的意见和建议。`,
+					`✦ 作为鲁州市政府办公室的一名公务员,请根据以下情况起草一份公告:
+
+情况说明:
+鲁州市近期遭遇严重干旱天气,造成多个乡镇和城区饮用水严重短缺。为了缓解群众生活困难,市政府决定自即日起实施城乡供水应急措施。请起草一份公告,向全市公众发布相关信息和应对措施。公告内容需包括但不限于以下要点:
+
+干旱情况概述,包括受灾范围、严重程度等。
+市政府采取的应急供水措施,如调配应急水源、安排运输车辆等。
+居民日常生活用水的相关要求和注意事项。
+联系方式,供群众查询相关信息和求助。
+号召全社会共同节约用水,配合政府应对干旱。
+请在1000字以内完成此篇公告的起草工作。`
+				];
+
+				// Populate prompt list
+				const promptList = $('#promptList');
+				prompts.forEach(prompt => {
+					const truncatedPrompt = prompt.length > 100 ? prompt.substring(0, 97) + '...' : prompt;
+					promptList.append(`
+						<div class="prompt-item" title="${prompt}">
+							${truncatedPrompt}
+						</div>
+					`);
+				});
 			});
-
-			event.preventDefault();
-		});
-	});
-</script>
-
-</body>
+		</script>
+	</body>
 </html>
