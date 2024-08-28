@@ -17,6 +17,17 @@ MAX_INPUT_LENGTH = 5900  # Leave some buffer
 def index():
     return render_template('chat.html')
 
+@app.route('/validate-password', methods=['POST'])
+def validate_password():
+    data = request.json
+    password = data.get('password')
+    passwords_array = os.getenv('USER_PASSWORDS').split(',')
+    # if password is in the list of passwords, return true
+    if password in passwords_array:
+        return jsonify({'valid': True})
+    else:
+        return jsonify({'valid': False})    
+
 @app.route("/get", methods=["POST"])
 def get_bot_response():
     global conversation_history

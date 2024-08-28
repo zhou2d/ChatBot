@@ -11,6 +11,16 @@
 	
 	
 	<body>
+		<div id="passwordPrompt">
+			<div>
+				<h2>公文快手：请输入口令</h2>
+				<input type="text" id="passwordInput" placeholder="输入口令" />
+				<button id="passwordSubmitButton">提交</button>
+			</div>
+		</div>
+	
+		<div id="chatContainer" style="display: none;">
+				   
 		<div class="container-fluid">
 			<div class="row justify-content-center h-100">
 				<div class="col-md-12 col-xl-12 chat">
@@ -55,13 +65,13 @@
 
 		<div class="prompt-panel">
 			<div class="prompt-panel-header">
-				<h4>提问示例</h4>
+				<h5>提问示例</h5>
 				<button class="close-prompt-panel">&times;</button>
 			</div>
-			<h6><i>你可以试试以下的公文写作要求。你的要求越具体，公文写作的准确性越高。</i></h6>
+			<h7><i>你可以试试以下的公文写作要求。你的要求越具体，公文写作的准确性越高。</i></h7><br/>
 			<div id="promptList"></div>
 		</div>
-
+    </div>
 		<style>
 			body, html {
 				height: 100%;
@@ -395,6 +405,27 @@
 			.copy-button:hover {
 				color: white;
 			}
+			#passwordPrompt {
+				display: flex; /* 默认显示 */
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0, 0, 0, 0.7);
+				color: white;
+				justify-content: center;
+				align-items: center;
+				z-index: 1000;
+			}
+			#passwordInput {
+				padding: 10px;
+				font-size: 16px;
+			}
+			#passwordSubmitButton {
+				padding: 10px;
+				font-size: 16px;
+			}
 		</style>
 
 		<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -413,8 +444,53 @@
 					"您的公文正在享受‘五星级’的编辑服务，稍等片刻，它将带着光环出现在您面前",
 					"公文正在‘微波炉’里加热，很快就会‘出炉’。请稍候，美味（结果）需要一点时间来烹饪",
 					"就像烘焙面包需要耐心等待发酵，您的公文也需要一点时间来充分酝酿它的香气",
-					"我们正在为您的公文进行‘文化充电’，充满电后，它将能量满满地呈现在您面前"
+					"我们正在为您的公文进行‘文化充电’，充满电后，它将能量满满地呈现在您面前",
+					"就像烘焙面包需要耐心等待发酵，您的公文也需要一点时间来充分酝酿它的香气",
+					"就像魔术师的兔子，您的公文正在帽子里做最后的准备，马上就能惊艳全场",
+					"您的公文正在‘灵感喷泉’下接受洗礼，让它吸收足够的创意水分，马上就能灵感迸发",
+					"您的公文正在参加‘文字马拉松’，它正在努力冲向终点线，请为它加油鼓劲",
+					"您的公文正在‘逻辑迷宫’中寻找最佳路径，它很快就会找到出口，带着清晰的思路来到您面前",
+					"您的公文正在‘智慧之泉’中汲取灵感，它喝得越多，内容越丰富。请给它一点时间，让它喝个饱",
+					"您的公文正在‘创意工坊’中接受创意的洗礼，它将变得更加独特和有创意。请稍等，它很快就会完成",
+					"您的公文正在‘风格试衣间’里试穿不同的表达方式，请稍等，它正在挑选最合身的那一件",
+					"您的公文正在‘语言大师’的指导下，学习如何用最恰当的语言表达您的思想。请稍等，它很快就会完成",
+					"您的公文正在‘格式化工厂’中接受格式化服务，请稍等，它很快就会完成",
+					"您的公文正在‘校对专家’的监督下，进行最后的校对。请稍等，它很快就会完成",
+					"您的公文正在‘排版师’的精心排版下，变得更加美观和专业。请稍等，它很快就会完成",
+					"您的公文正在‘打印机’中接受打印服务，请稍等，它很快就会完成",
+					"您的公文正在‘包装工’的精心包装下，变得更加精美和专业。请稍等，它很快就会完成",
+					"就像火箭发射前的倒计时，您的公文也在做最后的检查。3、2、1...即将发射成功",
+					"您的公文正在‘时间胶囊’中等待，请稍等，它很快就会完成",
+					"您的公文正在‘记忆宫殿’中接受记忆训练，请稍等，它很快就会完成",
+					"您的公文正在‘心灵导师’的指导下，学习如何用最恰当的语言表达您的思想。请稍等，它很快就会完成",
+					"我们正在为您的公文进行‘词汇SPA’，让它放松一下，吸收一些新词汇的滋养"
 				];
+
+				//validating password
+				document.getElementById("passwordSubmitButton").addEventListener("click", function() {
+					const inputPassword = document.getElementById("passwordInput").value;
+
+					// 发送 AJAX 请求到后端进行验证
+					fetch('/validate-password', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({ password: inputPassword })
+					})
+					.then(response => response.json())
+					.then(data => {
+						if (data.valid) {
+							document.getElementById("passwordPrompt").style.display = "none"; // 隐藏口令输入框
+							document.getElementById("chatContainer").style.display = "block"; // 显示聊天内容
+						} else {
+							alert("口令错误，请重试。");
+						}
+					})
+					.catch(error => {
+						console.error('Error:', error);
+					});
+				}); //end validating password
 
 				function startThinkingAnimation() {
 					let dots = 0;
@@ -501,7 +577,7 @@
 								$("#messageFormeight").append($.parseHTML(botHtml));
 								scrollToBottom();
 							} else if (data.status === 'processing') {
-								console.log("Still processing, polling again in 1 second");
+								console.log("Still processing, polling again in 2.5 seconds");
 								setTimeout(function() { pollForResponse(requestId); }, 2500);
 							} else {
 								stopThinkingAnimation();
@@ -715,7 +791,7 @@
 				// Populate prompt list
 				const promptList = $('#promptList');
 				prompts.forEach(prompt => {
-					const truncatedPrompt = prompt.length > 100 ? prompt.substring(0, 97) + '...' : prompt;
+					const truncatedPrompt = prompt.length > 110 ? prompt.substring(0, 107) + '...' : prompt;
 					promptList.append(`
 						<div class="prompt-item" title="${prompt}">
 							${truncatedPrompt}
